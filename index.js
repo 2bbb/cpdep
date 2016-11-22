@@ -21,6 +21,7 @@ program
 	.option('-r, --root <dir>', 'library root directory. [default: .]')
 	.option('-d, --dest <dir>', 'copy destination directory. [default: ./dest]')
 	.option('-f, --flatten-directory', 'if include with "local_path", then search recursively after search same directory.')
+	.option('-v, --verbose', 'log output be verbomania.')
 	.parse(process.argv);
 
 const context = {
@@ -30,12 +31,15 @@ const context = {
 	dest: program.dest || './dest',
 	save_list: program.saveList,
 	flatten: program.flattenDirectory ? true : false,
+	is_verbose: program.verbose ? true : false,
 	depends: []
 };
 
-assert(fs.existsSync(context.root), 'root directory [' + context.root + '] is not exist.');
+function verbose(text) {
+	if(context.is_verbose) console.log(text);
+}
 
-console.log(context.args);
+assert(fs.existsSync(context.root), 'root directory [' + context.root + '] is not exist.');
 
 assert(context.args.length != 0, 'argument is not given.');
 for(let i = 0; i < context.args.length; i++) {
@@ -68,7 +72,6 @@ function analyse(depend) {
 				return;
 			}
 			absolute_path = flatten_search[0];
-			console.log(flatten_search[0]);
 		} else {
 			depend.is_exist = false;
 			return;
@@ -89,7 +92,7 @@ function analyse(depend) {
 		}
 		return result;
 	}).forEach((result) => {
-		console.log('  ' + result.original_fragment);
+		verbose('  ' + result.original_fragment);
 		if((!context.depends.find((elem) => {
 			return elem.path == result.path
 				&& elem.is_absolute == result.is_absolute
@@ -105,7 +108,8 @@ for(const file_path of context.args) {
 	const result = {
 		path: file_path,
 		is_absolute: true,
-		is_searched: false
+		is_searched: false,
+		original_fragment: "given file"
 	};
 	analyse(result);
 	context.depends.push(result);
@@ -143,8 +147,8 @@ if(context.doCopy) {
 	}
 }
 
-console.log("copied:");
-copy_targets.forEach((file_path) => { console.log("  " + file_path); });
+console.info("copied:");
+copy_targets.forEach((file_path) => { console.info("  " + file_path); });
 
 console.warn("[WARN] not found:");
 not_found_targets.forEach((file_path) => { console.warn("  " + file_path)});
