@@ -50,7 +50,7 @@ function analyse(file_path) {
 		return false;
 	}
 	const data = fs.readFileSync(absolute_path, "utf8");
-	matched = data.match(re) || [];
+	const matched = data.match(re) || [];
 	matched.map((str) => {
 		return {
 			path: str.replace(re, RegExp.$1),
@@ -68,7 +68,7 @@ function analyse(file_path) {
 
 const re = new RegExp("");
 re.compile(/#[ \t\r\n]*include[ \t\r\n]*<([^>]+)>|"(["]+)"/g);
-for(file_path of context.args) {
+for(const file_path of context.args) {
 	const result = {
 		path: file_path,
 		is_absolute: true,
@@ -101,7 +101,7 @@ if(context.doCopy) {
 	if(context.doCopy && !fs.existsSync(context.dest)) {
 		fs.mkdirsSync(context.dest);
 	}
-	for(file_path of copy_targets) {
+	for(const file_path of copy_targets) {
 		fs.copySync(path.join(context.root, file_path), path.join(context.dest, file_path));
 	}
 }
