@@ -1,6 +1,6 @@
 {
   "name": "cpdep",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "analyse & copy dependencies on C++ library",
   "bin": {
     "cpdep": "index.js"
