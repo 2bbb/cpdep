@@ -113,6 +113,7 @@ for(const file_path of context.args) {
 
 for(let i = 0; i < context.depends.length; i++) {
 	const depend = context.depends[i];
+	if(depend.is_searched) continue;
 	analyse(depend);
 }
 
