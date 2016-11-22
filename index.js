@@ -91,7 +91,6 @@ for(let i = 0; i < context.depends.length; i++) {
 	const depend = context.depends[i];
 	depend.is_searched = true;
 	const file_path = depend.is_absolute ? depend.path : path.join(depend.dir, depend.path);
-	console.log(file_path);
 	depend.is_exist = analyse(file_path);
 }
 
