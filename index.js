@@ -14,7 +14,7 @@ function assert(cond, text, sig) {
 }
 
 program
-	.version('0.0.1')
+	.version('0.0.2')
 	.usage('[options] <target ...>')
 	.option('-c, --copy', 'copy')
 	.option('-s, --save-list <file_name>', 'save dependency list.')
@@ -42,8 +42,11 @@ for(let i = 0; i < context.args.length; i++) {
 
 console.log('project root: ' + context.root);
 
+const re = new RegExp("");
+re.compile(/#[ \t\r\n]*include[ \t\r\n]*[<|"]([^>"]+)[>|"]/g);
+
 function analyse(file_path) {
-	console.log('anylyse ' + file_path);
+	console.log('analyse ' + file_path);
 	const absolute_path = path.join(context.root, file_path);
 	if(!fs.existsSync(absolute_path)) {
 		console.warn("  !!!! [WARNING] " + file_path + " not found.");
@@ -52,22 +55,28 @@ function analyse(file_path) {
 	const data = fs.readFileSync(absolute_path, "utf8");
 	const matched = data.match(re) || [];
 	matched.map((str) => {
-		return {
+		const result = {
 			path: str.replace(re, RegExp.$1),
 			is_absolute: str.indexOf("<") != -1,
 			is_searched: false
 		};
+		if(!result.is_absolute) {
+			result.dir = path.dirname(file_path);
+		};
+		return result;
 	}).forEach((result) => {
 		console.log('  ' + result.path);
-		if((!context.depends.find((elem) => { return elem.path == result.path; }))) {
+		if((!context.depends.find((elem) => {
+			return elem.path == result.path
+				&& elem.is_absolute == result.is_absolute
+				&& elem.dir == result.dir;
+		}))) {
 			context.depends.push(result);
 		}
 	});
 	return true;
 }
 
-const re = new RegExp("");
-re.compile(/#[ \t\r\n]*include[ \t\r\n]*<([^>]+)>|"(["]+)"/g);
 for(const file_path of context.args) {
 	const result = {
 		path: file_path,
@@ -79,13 +88,19 @@ for(const file_path of context.args) {
 }
 
 for(let i = 0; i < context.depends.length; i++) {
-	context.depends[i].is_searched = true;
-	context.depends[i].is_exist = analyse(context.depends[i].path);
+	const depend = context.depends[i];
+	depend.is_searched = true;
+	const file_path = depend.is_absolute ? depend.path : path.join(depend.dir, depend.path);
+	console.log(file_path);
+	depend.is_exist = analyse(file_path);
 }
 
 const copy_targets = context.depends
 	.filter((elem) => { return elem.is_exist; })
-	.map((elem) => { return elem.path; });
+	.map((elem) => { return elem.is_absolute ? elem.path : path.join(elem.dir, elem.path); });
+const not_found_targets = context.depends
+	.filter((elem) => { return !elem.is_exist; })
+	.map((elem) => { return elem.is_absolute ? elem.path : path.join(elem.dir, elem.path); });
 
 if(context.save_list) {
 	fs.writeFileSync(
@@ -105,3 +120,9 @@ if(context.doCopy) {
 		fs.copySync(path.join(context.root, file_path), path.join(context.dest, file_path));
 	}
 }
+
+console.log("copied:");
+copy_targets.forEach((file_path) => { console.log("  " + file_path); });
+
+console.warn("[WARN] not found:");
+not_found_targets.forEach((file_path) => { console.warn("  " + file_path)});
