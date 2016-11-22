@@ -20,6 +20,7 @@ program
 	.option('-s, --save-list <file_name>', 'save dependency list.')
 	.option('-r, --root <dir>', 'library root directory. [default: .]')
 	.option('-d, --dest <dir>', 'copy destination directory. [default: ./dest]')
+	.option('-f, --flatten-directory', 'if include with "local_path", then search recursively after search same directory.')
 	.parse(process.argv);
 
 const context = {
@@ -28,6 +29,7 @@ const context = {
 	root: program.root || '.',
 	dest: program.dest || './dest',
 	save_list: program.saveList,
+	flatten: program.flattenDirectory ? true : false,
 	depends: []
 };
 
@@ -40,32 +42,54 @@ for(let i = 0; i < context.args.length; i++) {
 	assert(fs.existsSync(path.join(context.root, context.args[i])), 'argument at ' + i + ' [' + context.args[i] + '] is not exisit in ' + context.root + ".");
 }
 
+if(context.flatten) {
+	context.all_files = fs.walkSync(context.root);
+}
+
 console.log('project root: ' + context.root);
 
 const re = new RegExp("");
 re.compile(/#[ \t\r\n]*include[ \t\r\n]*[<|"]([^>"]+)[>|"]/g);
 
-function analyse(file_path) {
-	console.log('analyse ' + file_path);
-	const absolute_path = path.join(context.root, file_path);
+function analyse(depend) {
+	depend.is_searched = true;
+	const file_path = depend.is_absolute ? depend.path : path.join(depend.dir, depend.path);
+	console.log('analyse ' + file_path + " [" + (depend.original_fragment) + "]");
+	let absolute_path = path.join(context.root, file_path);
 	if(!fs.existsSync(absolute_path)) {
 		console.warn("  !!!! [WARNING] " + file_path + " not found.");
-		return false;
+		if(context.flatten && !depend.is_absolute) {
+			const flatten_search = context.all_files.filter((file) => {
+				return file.indexOf(depend.path.replace(/\.\//g, "")) != -1;
+			});
+			if(0 == flatten_search.length) {
+				console.warn("  !!!! [WARNING] " + file_path + " not found with search recursively.");
+				depend.is_exist = false;
+				return;
+			}
+			absolute_path = flatten_search[0];
+			console.log(flatten_search[0]);
+		} else {
+			depend.is_exist = false;
+			return;
+		}
 	}
 	const data = fs.readFileSync(absolute_path, "utf8");
-	const matched = data.match(re) || [];
-	matched.map((str) => {
+	(data.match(re) || []).map((str) => {
+		str.match(re);
+		const matched = RegExp.$1;
 		const result = {
-			path: str.replace(re, RegExp.$1),
+			path: str.replace(re, matched),
 			is_absolute: str.indexOf("<") != -1,
-			is_searched: false
+			is_searched: false,
+			original_fragment: str
 		};
 		if(!result.is_absolute) {
 			result.dir = path.dirname(file_path);
-		};
+		}
 		return result;
 	}).forEach((result) => {
-		console.log('  ' + result.path);
+		console.log('  ' + result.original_fragment);
 		if((!context.depends.find((elem) => {
 			return elem.path == result.path
 				&& elem.is_absolute == result.is_absolute
@@ -74,24 +98,22 @@ function analyse(file_path) {
 			context.depends.push(result);
 		}
 	});
-	return true;
+	depend.is_exist = true;
 }
 
 for(const file_path of context.args) {
 	const result = {
 		path: file_path,
 		is_absolute: true,
-		is_searched: true
+		is_searched: false
 	};
-	result.is_exist = analyse(file_path);
+	analyse(result);
 	context.depends.push(result);
 }
 
 for(let i = 0; i < context.depends.length; i++) {
 	const depend = context.depends[i];
-	depend.is_searched = true;
-	const file_path = depend.is_absolute ? depend.path : path.join(depend.dir, depend.path);
-	depend.is_exist = analyse(file_path);
+	analyse(depend);
 }
 
 const copy_targets = context.depends
