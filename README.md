@@ -5,7 +5,7 @@ analyse & copy dependencies on C++ library
 ## install
 
 ```
-npm install -g 2bbb/cpdep --save
+npm install -g 2bbb/cpdep
 ```
 
 ## how to use
